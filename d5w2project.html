@@ -109,15 +109,6 @@ na.test</code></pre>
 <pre class="sourceCode r"><code class="sourceCode r"><span class="kw">nrow</span>(storm[!(storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),])</code></pre>
 <pre><code>## [1] 27</code></pre>
 <p>Since ony 321 records have bad data in PROPDMGEXP, and only 27 have bad data in CROPDMGEXP, we can safely remove these records, then use the the letter codes to modify the PROPDMG and CROPDMG columns to actual values, then find the total value of all damage:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># view the data before.  Note the multiplier and total columns don't exist yet</span>
-<span class="kw">head</span>(storm[, <span class="kw">c</span>(<span class="dv">24</span>:<span class="dv">27</span>)])</code></pre>
-<pre><code>##   INJURIES PROPDMG PROPDMGEXP CROPDMG
-## 1       15    25.0          K       0
-## 2        0     2.5          K       0
-## 3        2    25.0          K       0
-## 4        2     2.5          K       0
-## 5        2     2.5          K       0
-## 6        6     2.5          K       0</code></pre>
 <pre class="sourceCode r"><code class="sourceCode r"><span class="co"># get rid of bad EXP values</span>
 storm &lt;-<span class="st"> </span>storm[(storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),]
 storm &lt;-<span class="st"> </span>storm[(storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),]
@@ -134,19 +125,78 @@ storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c<
 storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;M&quot;</span>, <span class="st">&quot;m&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000</span>
 storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;B&quot;</span>, <span class="st">&quot;b&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000000</span>
 storm$CROPDMG &lt;-<span class="st"> </span>storm$CROPDMG *<span class="st"> </span>storm$CROPMULT
-storm$TOTALDMG &lt;-<span class="st"> </span>storm$PROPDMG +<span class="st"> </span>storm$CROPDMG
-<span class="co"># view the data after</span>
-<span class="kw">head</span>(storm[, <span class="kw">c</span>(<span class="dv">24</span>:<span class="dv">27</span>,<span class="dv">38</span>:<span class="dv">40</span>)])</code></pre>
-<pre><code>##   INJURIES PROPDMG PROPDMGEXP CROPDMG PROPMULT CROPMULT TOTALDMG
-## 1       15   25000          K       0     1000        1    25000
-## 2        0    2500          K       0     1000        1     2500
-## 3        2   25000          K       0     1000        1    25000
-## 4        2    2500          K       0     1000        1     2500
-## 5        2    2500          K       0     1000        1     2500
-## 6        6    2500          K       0     1000        1     2500</code></pre>
+storm$TOTALDMG &lt;-<span class="st"> </span>storm$PROPDMG +<span class="st"> </span>storm$CROPDMG</code></pre>
 </div>
 <div id="results" class="section level3">
 <h3>Results</h3>
+<p>Now that the data has been tidied, the first question to ask is what weather events are most harmful to public health. Using the dplyr package, we can easily aggregate fatalities and injuries versus event:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># load required libraries for analysis</span>
+<span class="kw">stopifnot</span>(<span class="kw">require</span>(dplyr))
+<span class="kw">stopifnot</span>(<span class="kw">require</span>(ggplot2))
+
+<span class="co"># find weather events with fatalities</span>
+f &lt;-<span class="st"> </span><span class="kw">summarise</span>(<span class="kw">group_by</span>(storm, EVTYPE), <span class="kw">sum</span>(FATALITIES))
+<span class="kw">names</span>(f)[<span class="dv">2</span>] &lt;-<span class="st"> &quot;Fatalities&quot;</span>      <span class="co"># clean up the name</span>
+f &lt;-<span class="st"> </span>f[f$Fatalities !=<span class="st"> </span><span class="dv">0</span>, ]      <span class="co"># keep only events with nonzero fatalities</span>
+
+<span class="co">#find weather events with injuries</span>
+i &lt;-<span class="st"> </span><span class="kw">summarise</span>(<span class="kw">group_by</span>(storm, EVTYPE), <span class="kw">sum</span>(INJURIES))
+<span class="kw">names</span>(i)[<span class="dv">2</span>] &lt;-<span class="st"> &quot;Injuries&quot;</span>        <span class="co"># clean up the name</span>
+i &lt;-<span class="st"> </span>i[i$Injuries !=<span class="st"> </span><span class="dv">0</span>, ]        <span class="co"># keep only events with nonzero injuries</span></code></pre>
+<p>The number one cause of death by weather is tornado, with 5630 fatalities during the years recorded. This is almost three times the number of fatalities from the next most common event, excessive heat:</p>
+<pre class="sourceCode r"><code class="sourceCode r">f &lt;-<span class="st"> </span>f[<span class="kw">order</span>(-f$Fatalities), ]   <span class="co"># sort in descending order by fatalities</span>
+<span class="kw">head</span>(f, <span class="dv">10</span>)</code></pre>
+<pre><code>## Source: local data frame [10 x 2]
+## 
+##             EVTYPE Fatalities
+## 830        TORNADO       5630
+## 129 EXCESSIVE HEAT       1903
+## 152    FLASH FLOOD        978
+## 272           HEAT        937
+## 460      LIGHTNING        816
+## 852      TSTM WIND        504
+## 168          FLOOD        470
+## 581    RIP CURRENT        368
+## 356      HIGH WIND        246
+## 19       AVALANCHE        224</code></pre>
+<p>The number one cause of injuries is also tornados, with 91,321 injuries during the years recorded. This is <em>an order of magnitude</em> greater than the next most common event, excessive heat:</p>
+<pre class="sourceCode r"><code class="sourceCode r">i &lt;-<span class="st"> </span>i[<span class="kw">order</span>(-i$Injuries), ]     <span class="co"># sort in descending order by injuries</span>
+<span class="kw">head</span>(i, <span class="dv">10</span>)</code></pre>
+<pre><code>## Source: local data frame [10 x 2]
+## 
+##                EVTYPE Injuries
+## 830           TORNADO    91321
+## 852         TSTM WIND     6957
+## 168             FLOOD     6789
+## 129    EXCESSIVE HEAT     6525
+## 460         LIGHTNING     5230
+## 272              HEAT     2100
+## 423         ICE STORM     1975
+## 152       FLASH FLOOD     1777
+## 756 THUNDERSTORM WIND     1488
+## 241              HAIL     1358</code></pre>
+<p>To simplify, lets merge the top ten from each category (fatalities, injuries), replace NAs with 0, and then chart the combined totals:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># merge the two together</span>
+harm &lt;-<span class="st"> </span><span class="kw">merge</span>(f, i, <span class="dt">by.x =</span> <span class="st">&quot;EVTYPE&quot;</span>, <span class="dt">by.y =</span> <span class="st">&quot;EVTYPE&quot;</span>, <span class="dt">all=</span><span class="ot">TRUE</span>)
+harm[<span class="kw">is.na</span>(harm$Fatalities),][, <span class="dv">2</span>] &lt;-<span class="st"> </span><span class="dv">0</span>
+harm[<span class="kw">is.na</span>(harm$Injuries),][, <span class="dv">3</span>] &lt;-<span class="st"> </span><span class="dv">0</span>
+harm$Total &lt;-<span class="st"> </span>harm$Fatalities +<span class="st"> </span>harm$Injuries
+harm &lt;-<span class="st"> </span>harm[<span class="kw">order</span>(-harm$Total, harm$EVTYPE), ]
+
+<span class="co"># display the top </span>
+<span class="kw">head</span>(harm, <span class="dv">10</span>)</code></pre>
+<pre><code>##                EVTYPE Fatalities Injuries Total
+## 183           TORNADO       5630    91321 96951
+## 32     EXCESSIVE HEAT       1903     6525  8428
+## 190         TSTM WIND        504     6957  7461
+## 47              FLOOD        470     6789  7259
+## 122         LIGHTNING        816     5230  6046
+## 69               HEAT        937     2100  3037
+## 42        FLASH FLOOD        978     1777  2755
+## 116         ICE STORM         89     1975  2064
+## 172 THUNDERSTORM WIND        133     1488  1621
+## 213      WINTER STORM        206     1321  1527</code></pre>
+<p>The</p>
 </div>
 </div>
 

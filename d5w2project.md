@@ -85,21 +85,6 @@ Since ony 321 records have bad data in PROPDMGEXP, and only 27 have bad data in 
 
 
 ```r
-# view the data before.  Note the multiplier and total columns don't exist yet
-head(storm[, c(24:27)])
-```
-
-```
-##   INJURIES PROPDMG PROPDMGEXP CROPDMG
-## 1       15    25.0          K       0
-## 2        0     2.5          K       0
-## 3        2    25.0          K       0
-## 4        2     2.5          K       0
-## 5        2     2.5          K       0
-## 6        6     2.5          K       0
-```
-
-```r
 # get rid of bad EXP values
 storm <- storm[(storm$PROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
 storm <- storm[(storm$CROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
@@ -123,17 +108,100 @@ storm$CROPMULT[storm$CROPDMGEXP %in% c("M", "m")] <- 1000000
 storm$CROPMULT[storm$CROPDMGEXP %in% c("B", "b")] <- 1000000000
 storm$CROPDMG <- storm$CROPDMG * storm$CROPMULT
 storm$TOTALDMG <- storm$PROPDMG + storm$CROPDMG
-# view the data after
-head(storm[, c(24:27,38:40)])
+```
+### Results
+
+Now that the data has been tidied, the first question to ask is what weather events are most harmful to public health.  Using the dplyr package, we can easily aggregate fatalities and injuries versus event:
+
+
+```r
+# load required libraries for analysis
+stopifnot(require(dplyr))
+stopifnot(require(ggplot2))
+
+# find weather events with fatalities
+f <- summarise(group_by(storm, EVTYPE), sum(FATALITIES))
+names(f)[2] <- "Fatalities"      # clean up the name
+f <- f[f$Fatalities != 0, ]      # keep only events with nonzero fatalities
+
+#find weather events with injuries
+i <- summarise(group_by(storm, EVTYPE), sum(INJURIES))
+names(i)[2] <- "Injuries"        # clean up the name
+i <- i[i$Injuries != 0, ]        # keep only events with nonzero injuries
+```
+
+The number one cause of death by weather is tornado, with 5630 fatalities during the years recorded.  This is almost three times the number of fatalities from the next most common event, excessive heat:
+
+```r
+f <- f[order(-f$Fatalities), ]   # sort in descending order by fatalities
+head(f, 10)
 ```
 
 ```
-##   INJURIES PROPDMG PROPDMGEXP CROPDMG PROPMULT CROPMULT TOTALDMG
-## 1       15   25000          K       0     1000        1    25000
-## 2        0    2500          K       0     1000        1     2500
-## 3        2   25000          K       0     1000        1    25000
-## 4        2    2500          K       0     1000        1     2500
-## 5        2    2500          K       0     1000        1     2500
-## 6        6    2500          K       0     1000        1     2500
+## Source: local data frame [10 x 2]
+## 
+##             EVTYPE Fatalities
+## 830        TORNADO       5630
+## 129 EXCESSIVE HEAT       1903
+## 152    FLASH FLOOD        978
+## 272           HEAT        937
+## 460      LIGHTNING        816
+## 852      TSTM WIND        504
+## 168          FLOOD        470
+## 581    RIP CURRENT        368
+## 356      HIGH WIND        246
+## 19       AVALANCHE        224
 ```
-### Results
+
+The number one cause of injuries is also tornados, with 91,321 injuries during the years recorded.  This is _an order of magnitude_ greater than the next most common event, excessive heat:
+
+```r
+i <- i[order(-i$Injuries), ]     # sort in descending order by injuries
+head(i, 10)
+```
+
+```
+## Source: local data frame [10 x 2]
+## 
+##                EVTYPE Injuries
+## 830           TORNADO    91321
+## 852         TSTM WIND     6957
+## 168             FLOOD     6789
+## 129    EXCESSIVE HEAT     6525
+## 460         LIGHTNING     5230
+## 272              HEAT     2100
+## 423         ICE STORM     1975
+## 152       FLASH FLOOD     1777
+## 756 THUNDERSTORM WIND     1488
+## 241              HAIL     1358
+```
+
+To simplify, lets merge the top ten from each category (fatalities, injuries), replace NAs with 0, and then chart the combined totals:
+
+
+```r
+# merge the two together
+harm <- merge(f, i, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
+harm[is.na(harm$Fatalities),][, 2] <- 0
+harm[is.na(harm$Injuries),][, 3] <- 0
+harm$Total <- harm$Fatalities + harm$Injuries
+harm <- harm[order(-harm$Total, harm$EVTYPE), ]
+
+# display the top 
+head(harm, 10)
+```
+
+```
+##                EVTYPE Fatalities Injuries Total
+## 183           TORNADO       5630    91321 96951
+## 32     EXCESSIVE HEAT       1903     6525  8428
+## 190         TSTM WIND        504     6957  7461
+## 47              FLOOD        470     6789  7259
+## 122         LIGHTNING        816     5230  6046
+## 69               HEAT        937     2100  3037
+## 42        FLASH FLOOD        978     1777  2755
+## 116         ICE STORM         89     1975  2064
+## 172 THUNDERSTORM WIND        133     1488  1621
+## 213      WINTER STORM        206     1321  1527
+```
+The
