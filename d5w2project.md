@@ -1,0 +1,45 @@
+# U.S. Weather Activities versus the Public Health
+Jim Stephenson  
+August 24, 2014  
+
+## U.S. Weather Activities versus the Public Health
+### Synopsis
+
+Data for this project comes from NOAA's storm database.  The [data file](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) is a fairly large (47MB) bzipped file that decompresses to a large (562MB) CSV file.  Within the data file are records of weather events spanning 1950 to 2011.
+
+
+```r
+## download and extract the data 
+if (!file.exists("./data")) {
+  dir.create("./data")
+  fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+  download.file(fileURL, destfile = "./data/dataset.bz2", method = "curl", mode = "wb")
+}
+# note: this next line will take a *very* long time to execute (5 or more minutes)
+# ... go make a cup of coffee ...
+storm <- read.csv(bzfile("./data/dataset.bz2", "r"))
+```
+After reading in the data, we can see that there are over 900K records, with 37 variables.  Fortunately, the columns we care about -- Event Type (EVTYPE), Fatalities (FATALITIES), and Injuries (INJURIES) -- do not contain NA values, so we don't have to manage them:
+
+
+```r
+dim(storm)
+```
+
+```
+## [1] 902297     37
+```
+
+```r
+na.test <-c(anyNA(storm$EVTYPE),anyNA(storm$FATALITIES), anyNA(storm$INJURIES))
+na.test
+```
+
+```
+## [1] FALSE FALSE FALSE
+```
+### Loading and Processing Raw Data
+
+
+
+### Results
