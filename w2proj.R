@@ -6,14 +6,12 @@ if (!file.exists("./data")) {
 }
 # note: this next line will take a *very* long time to execute (5 or more minutes)
 # ... go make a cup of coffee ...
-if(exists(storm) == FALSE) {
-  storm <- read.csv(bzfile("./data/dataset.bz2", "r"))
-} 
+storm <- read.csv(bzfile("./data/dataset.bz2", "r"))
 
 dim(storm)
 na.test <-c(anyNA(storm$EVTYPE),anyNA(storm$FATALITIES), anyNA(storm$INJURIES),
-            anyNA(storm$PROPDMG),anyNA(storm$PROPDMGEXP),
-            anyNA(storm$CROPDMG), anyNA(storm$CROPDMGEXP))
+anyNA(storm$PROPDMG),anyNA(storm$PROPDMGEXP),
+anyNA(storm$CROPDMG), anyNA(storm$CROPDMGEXP))
 na.test
 
 levels(storm$PROPDMGEXP)
@@ -22,8 +20,6 @@ levels(storm$CROPDMGEXP)
 nrow(storm[!(storm$PROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),])
 nrow(storm[!(storm$CROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),])
 
-# view the data before.  Note the multiplier and total columns don't exist yet
-head(storm[, c(24:27)])
 # get rid of bad EXP values
 storm <- storm[(storm$PROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
 storm <- storm[(storm$CROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
@@ -40,8 +36,6 @@ storm$CROPMULT[storm$CROPDMGEXP %in% c("M", "m")] <- 1000000
 storm$CROPMULT[storm$CROPDMGEXP %in% c("B", "b")] <- 1000000000
 storm$CROPDMG <- storm$CROPDMG * storm$CROPMULT
 storm$TOTALDMG <- storm$PROPDMG + storm$CROPDMG
-# view the data after
-head(storm[, c(24:27,38:40)])
 
 # load required libraries for analysis
 stopifnot(require(dplyr))
@@ -68,34 +62,54 @@ harm <- merge(f, i, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
 harm[is.na(harm$Fatalities),][, 2] <- 0
 harm[is.na(harm$Injuries),][, 3] <- 0
 harm$Total <- harm$Fatalities + harm$Injuries
-harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 
 # display the top 
+harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 head(harm, 10)
 
 # display harm as a barchart
-h <- head(harm, 10)
+harm$Total <- harm$Total/1000  # scale it down to make it easier to understand in the chart
 ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
-  geom_bar(stat="identity", fill="red") +
-  theme(axis.text.x = element_text(angle=20, hjust=1)) +
-  xlab("Weather Event Type") +
-  ylab("Total Casualties (Fatalities + Injuries)") +
-  ggtitle("Total Number of Casualties per Weather Event Type")
+geom_bar(stat="identity", fill="red") +
+theme(axis.text.x = element_text(angle=20, hjust=1)) +
+xlab("Weather Event Type") +
+ylab("Total Casualties (Fatalities + Injuries) in Thousands") +
+ggtitle("Total Number of Casualties per Weather Event Type")
 
 # find weather events that caused property damage
 p <- summarise(group_by(storm, EVTYPE), sum(PROPDMG))
-names(p)[2] <- "PDamage"      # clean up the name
-p <- p[p$PDamage != 0, ]      # keep only events with nonzero damage events
+names(p)[2] <- "PropertyDamageBillions"     # clean up the name
+p <- p[p$PropertyDamageBillions != 0, ]     # keep only events with nonzero damage events
+p$PropertyDamageBillions <- p$PropertyDamageBillions/1000000000  # scale down to billions for readability
 
 #find weather events that caused crop damage
 c <- summarise(group_by(storm, EVTYPE), sum(CROPDMG))
-names(c)[2] <- "CDamage"          # clean up the name
-c <- c[c$CDamage != 0, ]          # keep only events with nonzero damage events
+names(c)[2] <- "CropDamageBillions"         # clean up the name
+c <- c[c$CropDamageBillions != 0, ]         # keep only events with nonzero damage events
+c$CropDamageBillions <- c$CropDamageBillions/1000000000  # scale down to billions for readability
 
-p <- p[order(-p$PDamage), ]   # sort in descending order by fatalities
-p$PropertyDamage <- as.character(p$PDamage)
-head(p[, c(1, 3)], 10)
+p <- p[order(-p$PropertyDamageBillions), ]   # sort in descending order by fatalities
+head(p, 10)
 
-c <- c[order(-c$CDamage), ]   # sort in descending order by fatalities
-c$CropDamage <- as.character(c$CDamage)
-head(c[, c(1, 3)], 10)
+c <- c[order(-c$CropDamageBillions), ]   # sort in descending order by fatalities
+head(c, 10)
+
+# merge the two together
+cost <- merge(p, c, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
+cost[is.na(cost$PropertyDamageBillions),][, 2] <- 0
+cost[is.na(cost$CropDamageBillions),][, 3] <- 0
+cost$Total <- (cost$PropertyDamageBillions + cost$CropDamageBillions)
+#cost$TotalBillions <- format(cost$Total, digits=4, justify="right", scientific=FALSE)
+
+# display the top 
+cost <- cost[order(-cost$Total, cost$EVTYPE), ]
+head(cost, 10)
+
+# display cost as a barchart
+ggplot(data=head(cost, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
+  geom_bar(stat="identity", fill="blue") +
+  theme(axis.text.x = element_text(angle=20, hjust=1)) +
+  xlab("Weather Event Type") +
+  ylab("Total Damages (Billions of US Dollars)") +
+  ggtitle("Total Amount of Damages per Weather Event Type")
+

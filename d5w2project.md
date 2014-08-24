@@ -2,9 +2,8 @@
 Jim Stephenson  
 August 24, 2014  
 
-## U.S. Weather Activities versus the Public Health
 ### Synopsis
-
+In this report we aim to identify which types of weather events are the leading causes of human casualties (fatalities and injuries) and property damage (including crop damage).  Data was obtained from the National Oceanic and Atmospheric Administration's (NOAA) storm database.  This database contains data for weather events from 1950 to 2011.  From the data we determined that tornados are the leading cause of fatality and injury; flood causes the most property damage, while drought causes the most crop damage. 
 
 ### Data Processing
 
@@ -22,6 +21,7 @@ if (!file.exists("./data")) {
 # ... go make a cup of coffee ...
 storm <- read.csv(bzfile("./data/dataset.bz2", "r"))
 ```
+
 After reading in the data, we can see that there are over 900K records, with 37 variables.  Fortunately, the columns we care about -- Event Type (EVTYPE), Fatalities (FATALITIES), Injuries (INJURIES), Property Damage (PROPDMG), Property Damage Exponant (PROPDMGEXP), Crop Damage (CROPDMG), and Crop Damage Exponant (CROPDMGEXP) -- do not contain NA values, so we don't have to manage them:
 
 
@@ -130,7 +130,7 @@ names(i)[2] <- "Injuries"        # clean up the name
 i <- i[i$Injuries != 0, ]        # keep only events with nonzero injuries
 ```
 
-The number one cause of death by weather is tornado, with 5630 fatalities during the years recorded.  This is almost three times the number of fatalities from the next most common event, excessive heat:
+The number one cause of death by weather are _tornados_, with 5630 fatalities during the years recorded.  This is almost three times the number of fatalities from the next most common event, _excessive heat_:
 
 ```r
 f <- f[order(-f$Fatalities), ]   # sort in descending order by fatalities
@@ -153,7 +153,7 @@ head(f, 10)
 ## 19       AVALANCHE        224
 ```
 
-The number one cause of injuries is also tornados, with 91,321 injuries during the years recorded.  This is _an order of magnitude_ greater than the next most common event, marine thunderstorm wind (TSTM WIND):
+The number one cause of injuries is also _tornados_, with 91,321 injuries during the years recorded.  This is an _order of magnitude_ greater than the next most common event, _marine thunderstorm wind_ (TSTM WIND):
 
 ```r
 i <- i[order(-i$Injuries), ]     # sort in descending order by injuries
@@ -176,7 +176,7 @@ head(i, 10)
 ## 241              HAIL     1358
 ```
 
-To simplify, lets merge the top ten from each category (fatalities, injuries), replace NAs with 0, and then chart the combined totals:
+To simplify, lets merge each category (fatalities, injuries) into a unified _harm_ category, replace NAs with 0, and then view the combined totals:
 
 
 ```r
@@ -209,12 +209,12 @@ Tornados still dominate the _harm_ category.  To make it painfully obvious, exam
 
 ```r
 # display harm as a barchart
-h <- head(harm, 10)
+harm$Total <- harm$Total/1000  # scale it down to make it easier to understand in the chart
 ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
   geom_bar(stat="identity", fill="red") +
   theme(axis.text.x = element_text(angle=20, hjust=1)) +
   xlab("Weather Event Type") +
-  ylab("Total Casualties (Fatalities + Injuries)") +
+  ylab("Total Casualties (Fatalities + Injuries) in Thousands") +
   ggtitle("Total Number of Casualties per Weather Event Type")
 ```
 
@@ -226,59 +226,101 @@ The other main issue we care about is property and crop damage.  Once again we'l
 ```r
 # find weather events that caused property damage
 p <- summarise(group_by(storm, EVTYPE), sum(PROPDMG))
-names(p)[2] <- "PDamage"      # clean up the name
-p <- p[p$PDamage != 0, ]      # keep only events with nonzero damage events
+names(p)[2] <- "PropertyDamageBillions"     # clean up the name
+p <- p[p$PropertyDamageBillions != 0, ]     # keep only events with nonzero damage events
+p$PropertyDamageBillions <- p$PropertyDamageBillions/1000000000  # scale down to billions for readability
 
 #find weather events that caused crop damage
 c <- summarise(group_by(storm, EVTYPE), sum(CROPDMG))
-names(c)[2] <- "CDamage"          # clean up the name
-c <- c[c$CDamage != 0, ]          # keep only events with nonzero damage events
+names(c)[2] <- "CropDamageBillions"         # clean up the name
+c <- c[c$CropDamageBillions != 0, ]         # keep only events with nonzero damage events
+c$CropDamageBillions <- c$CropDamageBillions/1000000000  # scale down to billions for readability
 ```
 
-The number one cause of property damage is flood (US$145 billion); the next three -- hurricane/typhoon (US$69 billion), tornado (USD$60 billion), and storm surge (USD$43 billion) -- are each between a half and a third the cost of flood damage:
+The number one cause of property damage is _flooding_ (US$145 billion); the next three -- _hurricane/typhoon_ (US$69 billion), _tornado_ (USD$60 billion), and _storm surge_ (USD$43 billion) -- are each between a half and a third the cost of _flood_ damage:
 
 ```r
-p <- p[order(-p$PDamage), ]   # sort in descending order by fatalities
-p$PropertyDamage <- as.character(p$PDamage)
-head(p[, c(1, 3)], 10)
+p <- p[order(-p$PropertyDamageBillions), ]   # sort in descending order by fatalities
+head(p, 10)
 ```
 
 ```
 ## Source: local data frame [10 x 2]
 ## 
-##                EVTYPE PropertyDamage
-## 168             FLOOD   144657709807
-## 407 HURRICANE/TYPHOON    69305840000
-## 830           TORNADO    56936985483
-## 666       STORM SURGE    43323536000
-## 152       FLASH FLOOD    16140811717
-## 241              HAIL    15732261777
-## 398         HURRICANE    11868319010
-## 844    TROPICAL STORM     7703890550
-## 968      WINTER STORM     6688497250
-## 356         HIGH WIND     5270046260
+##                EVTYPE PropertyDamageBillions
+## 168             FLOOD                144.658
+## 407 HURRICANE/TYPHOON                 69.306
+## 830           TORNADO                 56.937
+## 666       STORM SURGE                 43.324
+## 152       FLASH FLOOD                 16.141
+## 241              HAIL                 15.732
+## 398         HURRICANE                 11.868
+## 844    TROPICAL STORM                  7.704
+## 968      WINTER STORM                  6.688
+## 356         HIGH WIND                  5.270
 ```
 
-The number one cause of crop damage is drought (US$14 billion); the next three -- flood (US$6 billion), river flood (US$5 billion), and ice storm (US$5 billion) -- are also between a half and a third the cost of flood damage:
+The number one cause of crop damage is _drought_ (US$14 billion); the next three -- _flood_ (US$6 billion), _river flood_ (US$5 billion), and _ice storm_ (US$5 billion) -- are also between a half and a third the cost of _flood_ damage:
 
 ```r
-c <- c[order(-c$CDamage), ]   # sort in descending order by fatalities
-c$CropDamage <- as.character(c$CDamage)
-head(c[, c(1, 3)], 10)
+c <- c[order(-c$CropDamageBillions), ]   # sort in descending order by fatalities
+head(c, 10)
 ```
 
 ```
 ## Source: local data frame [10 x 2]
 ## 
-##                EVTYPE  CropDamage
-## 94            DROUGHT 13972566000
-## 168             FLOOD  5661968450
-## 586       RIVER FLOOD  5029459000
-## 423         ICE STORM  5022110000
-## 241              HAIL  3000954453
-## 398         HURRICANE  2741910000
-## 407 HURRICANE/TYPHOON  2607872800
-## 152       FLASH FLOOD  1420727100
-## 139      EXTREME COLD  1292973000
-## 209      FROST/FREEZE  1094086000
+##                EVTYPE CropDamageBillions
+## 94            DROUGHT             13.973
+## 168             FLOOD              5.662
+## 586       RIVER FLOOD              5.029
+## 423         ICE STORM              5.022
+## 241              HAIL              3.001
+## 398         HURRICANE              2.742
+## 407 HURRICANE/TYPHOON              2.608
+## 152       FLASH FLOOD              1.421
+## 139      EXTREME COLD              1.293
+## 209      FROST/FREEZE              1.094
 ```
+Combining both categories to get the total cost of weather related events, we can see that _flooding_ costs more than all other events, and that since crop damage is smaller by an order of magnitude than property damage, the order (and relative size) of the cost per event is pretty much the same as for property damage itself:
+
+```r
+# merge the two together
+cost <- merge(p, c, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
+cost[is.na(cost$PropertyDamageBillions),][, 2] <- 0
+cost[is.na(cost$CropDamageBillions),][, 3] <- 0
+cost$Total <- (cost$PropertyDamageBillions + cost$CropDamageBillions)
+#cost$TotalBillions <- format(cost$Total, digits=4, justify="right", scientific=FALSE)
+
+# display the top 
+cost <- cost[order(-cost$Total, cost$EVTYPE), ]
+head(cost, 10)
+```
+
+```
+##                EVTYPE PropertyDamageBillions CropDamageBillions   Total
+## 70              FLOOD                144.658           5.661968 150.320
+## 192 HURRICANE/TYPHOON                 69.306           2.607873  71.914
+## 348           TORNADO                 56.937           0.364950  57.302
+## 294       STORM SURGE                 43.324           0.000005  43.324
+## 113              HAIL                 15.732           3.000954  18.733
+## 58        FLASH FLOOD                 16.141           1.420727  17.562
+## 38            DROUGHT                  1.046          13.972566  15.019
+## 184         HURRICANE                 11.868           2.741910  14.610
+## 257       RIVER FLOOD                  5.119           5.029459  10.148
+## 201         ICE STORM                  3.945           5.022110   8.967
+```
+
+As with the harm section, we can plot this to see the relative costs associated with each weather event type:
+
+```r
+# display cost as a barchart
+ggplot(data=head(cost, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
+  geom_bar(stat="identity", fill="blue") +
+  theme(axis.text.x = element_text(angle=20, hjust=1)) +
+  xlab("Weather Event Type") +
+  ylab("Total Damages (Billions of US Dollars)") +
+  ggtitle("Total Amount of Damages per Weather Event Type")
+```
+
+![plot of chunk displayCost](./d5w2project_files/figure-html/displayCost.png) 
