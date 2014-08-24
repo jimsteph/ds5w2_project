@@ -81,3 +81,21 @@ ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) +
   xlab("Weather Event Type") +
   ylab("Total Casualties (Fatalities + Injuries)") +
   ggtitle("Total Number of Casualties per Weather Event Type")
+
+# find weather events that caused property damage
+p <- summarise(group_by(storm, EVTYPE), sum(PROPDMG))
+names(p)[2] <- "PDamage"      # clean up the name
+p <- p[p$PDamage != 0, ]      # keep only events with nonzero damage events
+
+#find weather events that caused crop damage
+c <- summarise(group_by(storm, EVTYPE), sum(CROPDMG))
+names(c)[2] <- "CDamage"          # clean up the name
+c <- c[c$CDamage != 0, ]          # keep only events with nonzero damage events
+
+p <- p[order(-p$PDamage), ]   # sort in descending order by fatalities
+p$PropertyDamage <- as.character(p$PDamage)
+head(p[, c(1, 3)], 10)
+
+c <- c[order(-c$CDamage), ]   # sort in descending order by fatalities
+c$CropDamage <- as.character(c$CDamage)
+head(c[, c(1, 3)], 10)

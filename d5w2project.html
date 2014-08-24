@@ -213,6 +213,50 @@ h &lt;-<span class="st"> </span><span class="kw">head</span>(harm, <span class="
 </div>
 <div id="property-and-crop-damage" class="section level4">
 <h4>Property and Crop Damage</h4>
+<p>The other main issue we care about is property and crop damage. Once again we’ll start by aggregating data for each one separately:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># find weather events that caused property damage</span>
+p &lt;-<span class="st"> </span><span class="kw">summarise</span>(<span class="kw">group_by</span>(storm, EVTYPE), <span class="kw">sum</span>(PROPDMG))
+<span class="kw">names</span>(p)[<span class="dv">2</span>] &lt;-<span class="st"> &quot;PDamage&quot;</span>      <span class="co"># clean up the name</span>
+p &lt;-<span class="st"> </span>p[p$PDamage !=<span class="st"> </span><span class="dv">0</span>, ]      <span class="co"># keep only events with nonzero damage events</span>
+
+<span class="co">#find weather events that caused crop damage</span>
+c &lt;-<span class="st"> </span><span class="kw">summarise</span>(<span class="kw">group_by</span>(storm, EVTYPE), <span class="kw">sum</span>(CROPDMG))
+<span class="kw">names</span>(c)[<span class="dv">2</span>] &lt;-<span class="st"> &quot;CDamage&quot;</span>          <span class="co"># clean up the name</span>
+c &lt;-<span class="st"> </span>c[c$CDamage !=<span class="st"> </span><span class="dv">0</span>, ]          <span class="co"># keep only events with nonzero damage events</span></code></pre>
+<p>The number one cause of property damage is flood (US$145 billion); the next three – hurricane/typhoon (US$69 billion), tornado (USD$60 billion), and storm surge (USD$43 billion) – are each between a half and a third the cost of flood damage:</p>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span>p[<span class="kw">order</span>(-p$PDamage), ]   <span class="co"># sort in descending order by fatalities</span>
+p$PropertyDamage &lt;-<span class="st"> </span><span class="kw">as.character</span>(p$PDamage)
+<span class="kw">head</span>(p[, <span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">3</span>)], <span class="dv">10</span>)</code></pre>
+<pre><code>## Source: local data frame [10 x 2]
+## 
+##                EVTYPE PropertyDamage
+## 168             FLOOD   144657709807
+## 407 HURRICANE/TYPHOON    69305840000
+## 830           TORNADO    56936985483
+## 666       STORM SURGE    43323536000
+## 152       FLASH FLOOD    16140811717
+## 241              HAIL    15732261777
+## 398         HURRICANE    11868319010
+## 844    TROPICAL STORM     7703890550
+## 968      WINTER STORM     6688497250
+## 356         HIGH WIND     5270046260</code></pre>
+<p>The number one cause of crop damage is drought (US$14 billion); the next three – flood (US$6 billion), river flood (US$5 billion), and ice storm (US$5 billion) – are also between a half and a third the cost of flood damage:</p>
+<pre class="sourceCode r"><code class="sourceCode r">c &lt;-<span class="st"> </span>c[<span class="kw">order</span>(-c$CDamage), ]   <span class="co"># sort in descending order by fatalities</span>
+c$CropDamage &lt;-<span class="st"> </span><span class="kw">as.character</span>(c$CDamage)
+<span class="kw">head</span>(c[, <span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">3</span>)], <span class="dv">10</span>)</code></pre>
+<pre><code>## Source: local data frame [10 x 2]
+## 
+##                EVTYPE  CropDamage
+## 94            DROUGHT 13972566000
+## 168             FLOOD  5661968450
+## 586       RIVER FLOOD  5029459000
+## 423         ICE STORM  5022110000
+## 241              HAIL  3000954453
+## 398         HURRICANE  2741910000
+## 407 HURRICANE/TYPHOON  2607872800
+## 152       FLASH FLOOD  1420727100
+## 139      EXTREME COLD  1292973000
+## 209      FROST/FREEZE  1094086000</code></pre>
 </div>
 </div>
 </div>

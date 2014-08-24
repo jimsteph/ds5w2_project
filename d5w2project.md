@@ -221,3 +221,64 @@ ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) +
 ![plot of chunk displayHarm](./d5w2project_files/figure-html/displayHarm.png) 
 
 #### Property and Crop Damage
+The other main issue we care about is property and crop damage.  Once again we'll start by aggregating data for each one separately:
+
+```r
+# find weather events that caused property damage
+p <- summarise(group_by(storm, EVTYPE), sum(PROPDMG))
+names(p)[2] <- "PDamage"      # clean up the name
+p <- p[p$PDamage != 0, ]      # keep only events with nonzero damage events
+
+#find weather events that caused crop damage
+c <- summarise(group_by(storm, EVTYPE), sum(CROPDMG))
+names(c)[2] <- "CDamage"          # clean up the name
+c <- c[c$CDamage != 0, ]          # keep only events with nonzero damage events
+```
+
+The number one cause of property damage is flood (US$145 billion); the next three -- hurricane/typhoon (US$69 billion), tornado (USD$60 billion), and storm surge (USD$43 billion) -- are each between a half and a third the cost of flood damage:
+
+```r
+p <- p[order(-p$PDamage), ]   # sort in descending order by fatalities
+p$PropertyDamage <- as.character(p$PDamage)
+head(p[, c(1, 3)], 10)
+```
+
+```
+## Source: local data frame [10 x 2]
+## 
+##                EVTYPE PropertyDamage
+## 168             FLOOD   144657709807
+## 407 HURRICANE/TYPHOON    69305840000
+## 830           TORNADO    56936985483
+## 666       STORM SURGE    43323536000
+## 152       FLASH FLOOD    16140811717
+## 241              HAIL    15732261777
+## 398         HURRICANE    11868319010
+## 844    TROPICAL STORM     7703890550
+## 968      WINTER STORM     6688497250
+## 356         HIGH WIND     5270046260
+```
+
+The number one cause of crop damage is drought (US$14 billion); the next three -- flood (US$6 billion), river flood (US$5 billion), and ice storm (US$5 billion) -- are also between a half and a third the cost of flood damage:
+
+```r
+c <- c[order(-c$CDamage), ]   # sort in descending order by fatalities
+c$CropDamage <- as.character(c$CDamage)
+head(c[, c(1, 3)], 10)
+```
+
+```
+## Source: local data frame [10 x 2]
+## 
+##                EVTYPE  CropDamage
+## 94            DROUGHT 13972566000
+## 168             FLOOD  5661968450
+## 586       RIVER FLOOD  5029459000
+## 423         ICE STORM  5022110000
+## 241              HAIL  3000954453
+## 398         HURRICANE  2741910000
+## 407 HURRICANE/TYPHOON  2607872800
+## 152       FLASH FLOOD  1420727100
+## 139      EXTREME COLD  1292973000
+## 209      FROST/FREEZE  1094086000
+```
