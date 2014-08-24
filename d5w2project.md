@@ -6,7 +6,7 @@ August 24, 2014
 ### Synopsis
 
 
-### Loading and Processing Raw Data
+### Data Processing
 
 Data for this project comes from NOAA's storm database.  The [data file](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) is a fairly large (47MB) bzipped file that decompresses to a large (562MB) CSV file.  Within the data file are records of weather events spanning 1950 to 2011.
 
@@ -110,7 +110,7 @@ storm$CROPDMG <- storm$CROPDMG * storm$CROPMULT
 storm$TOTALDMG <- storm$PROPDMG + storm$CROPDMG
 ```
 ### Results
-
+#### Fatalities and Injuries
 Now that the data has been tidied, the first question to ask is what weather events are most harmful to public health.  Using the dplyr package, we can easily aggregate fatalities and injuries versus event:
 
 
@@ -153,7 +153,7 @@ head(f, 10)
 ## 19       AVALANCHE        224
 ```
 
-The number one cause of injuries is also tornados, with 91,321 injuries during the years recorded.  This is _an order of magnitude_ greater than the next most common event, excessive heat:
+The number one cause of injuries is also tornados, with 91,321 injuries during the years recorded.  This is _an order of magnitude_ greater than the next most common event, marine thunderstorm wind (TSTM WIND):
 
 ```r
 i <- i[order(-i$Injuries), ]     # sort in descending order by injuries
@@ -185,9 +185,9 @@ harm <- merge(f, i, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
 harm[is.na(harm$Fatalities),][, 2] <- 0
 harm[is.na(harm$Injuries),][, 3] <- 0
 harm$Total <- harm$Fatalities + harm$Injuries
-harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 
 # display the top 
+harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 head(harm, 10)
 ```
 
@@ -204,4 +204,20 @@ head(harm, 10)
 ## 172 THUNDERSTORM WIND        133     1488  1621
 ## 213      WINTER STORM        206     1321  1527
 ```
-The
+
+Tornados still dominate the _harm_ category.  To make it painfully obvious, examing this bar chart showing how each weather even in the top ten of the merged dataset compare:
+
+```r
+# display harm as a barchart
+h <- head(harm, 10)
+ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
+  geom_bar(stat="identity", fill="red") +
+  theme(axis.text.x = element_text(angle=20, hjust=1)) +
+  xlab("Weather Event Type") +
+  ylab("Total Casualties (Fatalities + Injuries)") +
+  ggtitle("Total Number of Casualties per Weather Event Type")
+```
+
+![plot of chunk displayHarm](./d5w2project_files/figure-html/displayHarm.png) 
+
+#### Property and Crop Damage

@@ -13,7 +13,7 @@ output:
 ### Synopsis
 
 
-### Loading and Processing Raw Data
+### Data Processing
 
 Data for this project comes from NOAA's storm database.  The [data file](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) is a fairly large (47MB) bzipped file that decompresses to a large (562MB) CSV file.  Within the data file are records of weather events spanning 1950 to 2011.
 
@@ -71,7 +71,7 @@ storm$CROPDMG <- storm$CROPDMG * storm$CROPMULT
 storm$TOTALDMG <- storm$PROPDMG + storm$CROPDMG
 ```
 ### Results
-
+#### Fatalities and Injuries
 Now that the data has been tidied, the first question to ask is what weather events are most harmful to public health.  Using the dplyr package, we can easily aggregate fatalities and injuries versus event:
 
 ```{r processHarm, echo=TRUE, message=FALSE}
@@ -110,9 +110,22 @@ harm <- merge(f, i, by.x = "EVTYPE", by.y = "EVTYPE", all=TRUE)
 harm[is.na(harm$Fatalities),][, 2] <- 0
 harm[is.na(harm$Injuries),][, 3] <- 0
 harm$Total <- harm$Fatalities + harm$Injuries
-harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 
 # display the top 
+harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 head(harm, 10)
 ```
-The
+
+Tornados still dominate the _harm_ category.  To make it painfully obvious, examing this bar chart showing how each weather even in the top ten of the merged dataset compare:
+```{r displayHarm, echo=TRUE, message=FALSE}
+# display harm as a barchart
+h <- head(harm, 10)
+ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
+  geom_bar(stat="identity", fill="red") +
+  theme(axis.text.x = element_text(angle=20, hjust=1)) +
+  xlab("Weather Event Type") +
+  ylab("Total Casualties (Fatalities + Injuries)") +
+  ggtitle("Total Number of Casualties per Weather Event Type")
+```
+
+#### Property and Crop Damage

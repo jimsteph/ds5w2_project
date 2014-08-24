@@ -72,3 +72,12 @@ harm <- harm[order(-harm$Total, harm$EVTYPE), ]
 
 # display the top 
 head(harm, 10)
+
+# display harm as a barchart
+h <- head(harm, 10)
+ggplot(data=head(harm, 10), aes(x=reorder(EVTYPE, -Total), y=Total)) + 
+  geom_bar(stat="identity", fill="red") +
+  theme(axis.text.x = element_text(angle=20, hjust=1)) +
+  xlab("Weather Event Type") +
+  ylab("Total Casualties (Fatalities + Injuries)") +
+  ggtitle("Total Number of Casualties per Weather Event Type")
