@@ -12,6 +12,9 @@ output:
 ## U.S. Weather Activities versus the Public Health
 ### Synopsis
 
+
+### Loading and Processing Raw Data
+
 Data for this project comes from NOAA's storm database.  The [data file](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) is a fairly large (47MB) bzipped file that decompresses to a large (562MB) CSV file.  Within the data file are records of weather events spanning 1950 to 2011.
 
 ```{r loadData, echo=TRUE, cache=TRUE, message=FALSE}
@@ -25,15 +28,50 @@ if (!file.exists("./data")) {
 # ... go make a cup of coffee ...
 storm <- read.csv(bzfile("./data/dataset.bz2", "r"))
 ```
-After reading in the data, we can see that there are over 900K records, with 37 variables.  Fortunately, the columns we care about -- Event Type (EVTYPE), Fatalities (FATALITIES), and Injuries (INJURIES) -- do not contain NA values, so we don't have to manage them:
+After reading in the data, we can see that there are over 900K records, with 37 variables.  Fortunately, the columns we care about -- Event Type (EVTYPE), Fatalities (FATALITIES), Injuries (INJURIES), Property Damage (PROPDMG), Property Damage Exponant (PROPDMGEXP), Crop Damage (CROPDMG), and Crop Damage Exponant (CROPDMGEXP) -- do not contain NA values, so we don't have to manage them:
 
-```{r displayData, echo=TRUE, cache=TRUE, message=FALSE}
+```{r displayData, echo=TRUE, message=FALSE}
 dim(storm)
-na.test <-c(anyNA(storm$EVTYPE),anyNA(storm$FATALITIES), anyNA(storm$INJURIES))
+na.test <-c(anyNA(storm$EVTYPE),anyNA(storm$FATALITIES), anyNA(storm$INJURIES),
+            anyNA(storm$PROPDMG),anyNA(storm$PROPDMGEXP),
+            anyNA(storm$CROPDMG), anyNA(storm$CROPDMGEXP))
 na.test
 ```
-### Loading and Processing Raw Data
 
+However, there are odd values in the PROPDMGEXP and CROPDMGEXP that will have to be taken care of:
 
+```{r displayLevels, echo=TRUE, message=FALSE}
+levels(storm$PROPDMGEXP)
+levels(storm$CROPDMGEXP)
+```
+According to the National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) (section 2.7, page 12), these values should be letter codes corresponding to the magnitude of the cost, i.e.: K for thousands, M for millions, B for billions.  To see how bad the problem is, we run the following code:
 
+```{r findBadExp, echo=TRUE, message=FALSE}
+nrow(storm[!(storm$PROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),])
+nrow(storm[!(storm$CROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),])
+```
+Since ony 321 records have bad data in PROPDMGEXP, and only 27 have bad data in CROPDMGEXP, we can safely remove these records, then use the the letter codes to modify the PROPDMG and CROPDMG columns to actual values, then find the total value of all damage:
+
+```{r removeBadExp_1, echo=TRUE, message=FALSE}
+# view the data before.  Note the multiplier and total columns don't exist yet
+head(storm[, c(24:27)])
+# get rid of bad EXP values
+storm <- storm[(storm$PROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
+storm <- storm[(storm$CROPDMGEXP %in% c("K", "M", "B", "k", "m", "b", "")),]
+nrow(storm)
+# multiply the PROPDMG and CROPDMG fields by their EXP values
+storm$PROPMULT <- 1
+storm$PROPMULT[storm$PROPDMGEXP %in% c("K", "k")] <- 1000
+storm$PROPMULT[storm$PROPDMGEXP %in% c("M", "m")] <- 1000000
+storm$PROPMULT[storm$PROPDMGEXP %in% c("B", "b")] <- 1000000000
+storm$PROPDMG <- storm$PROPDMG * storm$PROPMULT
+storm$CROPMULT <- 1
+storm$CROPMULT[storm$CROPDMGEXP %in% c("K", "k")] <- 1000
+storm$CROPMULT[storm$CROPDMGEXP %in% c("M", "m")] <- 1000000
+storm$CROPMULT[storm$CROPDMGEXP %in% c("B", "b")] <- 1000000000
+storm$CROPDMG <- storm$CROPDMG * storm$CROPMULT
+storm$TOTALDMG <- storm$PROPDMG + storm$CROPDMG
+# view the data after
+head(storm[, c(24:27,38:40)])
+```
 ### Results

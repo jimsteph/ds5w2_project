@@ -76,6 +76,9 @@ code > span.er { font-weight: bold; }
 <h2>U.S. Weather Activities versus the Public Health</h2>
 <div id="synopsis" class="section level3">
 <h3>Synopsis</h3>
+</div>
+<div id="loading-and-processing-raw-data" class="section level3">
+<h3>Loading and Processing Raw Data</h3>
 <p>Data for this project comes from NOAA’s storm database. The <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2">data file</a> is a fairly large (47MB) bzipped file that decompresses to a large (562MB) CSV file. Within the data file are records of weather events spanning 1950 to 2011.</p>
 <pre class="sourceCode r"><code class="sourceCode r">## download and extract the data 
 if (!<span class="kw">file.exists</span>(<span class="st">&quot;./data&quot;</span>)) {
@@ -86,15 +89,61 @@ if (!<span class="kw">file.exists</span>(<span class="st">&quot;./data&quot;</sp
 <span class="co"># note: this next line will take a *very* long time to execute (5 or more minutes)</span>
 <span class="co"># ... go make a cup of coffee ...</span>
 storm &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span class="kw">bzfile</span>(<span class="st">&quot;./data/dataset.bz2&quot;</span>, <span class="st">&quot;r&quot;</span>))</code></pre>
-<p>After reading in the data, we can see that there are over 900K records, with 37 variables. Fortunately, the columns we care about – Event Type (EVTYPE), Fatalities (FATALITIES), and Injuries (INJURIES) – do not contain NA values, so we don’t have to manage them:</p>
+<p>After reading in the data, we can see that there are over 900K records, with 37 variables. Fortunately, the columns we care about – Event Type (EVTYPE), Fatalities (FATALITIES), Injuries (INJURIES), Property Damage (PROPDMG), Property Damage Exponant (PROPDMGEXP), Crop Damage (CROPDMG), and Crop Damage Exponant (CROPDMGEXP) – do not contain NA values, so we don’t have to manage them:</p>
 <pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(storm)</code></pre>
 <pre><code>## [1] 902297     37</code></pre>
-<pre class="sourceCode r"><code class="sourceCode r">na.test &lt;-<span class="kw">c</span>(<span class="kw">anyNA</span>(storm$EVTYPE),<span class="kw">anyNA</span>(storm$FATALITIES), <span class="kw">anyNA</span>(storm$INJURIES))
+<pre class="sourceCode r"><code class="sourceCode r">na.test &lt;-<span class="kw">c</span>(<span class="kw">anyNA</span>(storm$EVTYPE),<span class="kw">anyNA</span>(storm$FATALITIES), <span class="kw">anyNA</span>(storm$INJURIES),
+            <span class="kw">anyNA</span>(storm$PROPDMG),<span class="kw">anyNA</span>(storm$PROPDMGEXP),
+            <span class="kw">anyNA</span>(storm$CROPDMG), <span class="kw">anyNA</span>(storm$CROPDMGEXP))
 na.test</code></pre>
-<pre><code>## [1] FALSE FALSE FALSE</code></pre>
-</div>
-<div id="loading-and-processing-raw-data" class="section level3">
-<h3>Loading and Processing Raw Data</h3>
+<pre><code>## [1] FALSE FALSE FALSE FALSE FALSE FALSE FALSE</code></pre>
+<p>However, there are odd values in the PROPDMGEXP and CROPDMGEXP that will have to be taken care of:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">levels</span>(storm$PROPDMGEXP)</code></pre>
+<pre><code>##  [1] &quot;&quot;  &quot;-&quot; &quot;?&quot; &quot;+&quot; &quot;0&quot; &quot;1&quot; &quot;2&quot; &quot;3&quot; &quot;4&quot; &quot;5&quot; &quot;6&quot; &quot;7&quot; &quot;8&quot; &quot;B&quot; &quot;h&quot; &quot;H&quot; &quot;K&quot;
+## [18] &quot;m&quot; &quot;M&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">levels</span>(storm$CROPDMGEXP)</code></pre>
+<pre><code>## [1] &quot;&quot;  &quot;?&quot; &quot;0&quot; &quot;2&quot; &quot;B&quot; &quot;k&quot; &quot;K&quot; &quot;m&quot; &quot;M&quot;</code></pre>
+<p>According to the National Weather Service <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf">Storm Data Documentation</a> (section 2.7, page 12), these values should be letter codes corresponding to the magnitude of the cost, i.e.: K for thousands, M for millions, B for billions. To see how bad the problem is, we run the following code:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">nrow</span>(storm[!(storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),])</code></pre>
+<pre><code>## [1] 321</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">nrow</span>(storm[!(storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),])</code></pre>
+<pre><code>## [1] 27</code></pre>
+<p>Since ony 321 records have bad data in PROPDMGEXP, and only 27 have bad data in CROPDMGEXP, we can safely remove these records, then use the the letter codes to modify the PROPDMG and CROPDMG columns to actual values, then find the total value of all damage:</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># view the data before.  Note the multiplier and total columns don't exist yet</span>
+<span class="kw">head</span>(storm[, <span class="kw">c</span>(<span class="dv">24</span>:<span class="dv">27</span>)])</code></pre>
+<pre><code>##   INJURIES PROPDMG PROPDMGEXP CROPDMG
+## 1       15    25.0          K       0
+## 2        0     2.5          K       0
+## 3        2    25.0          K       0
+## 4        2     2.5          K       0
+## 5        2     2.5          K       0
+## 6        6     2.5          K       0</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># get rid of bad EXP values</span>
+storm &lt;-<span class="st"> </span>storm[(storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),]
+storm &lt;-<span class="st"> </span>storm[(storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;m&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;&quot;</span>)),]
+<span class="kw">nrow</span>(storm)</code></pre>
+<pre><code>## [1] 901949</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># multiply the PROPDMG and CROPDMG fields by their EXP values</span>
+storm$PROPMULT &lt;-<span class="st"> </span><span class="dv">1</span>
+storm$PROPMULT[storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;k&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000</span>
+storm$PROPMULT[storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;M&quot;</span>, <span class="st">&quot;m&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000</span>
+storm$PROPMULT[storm$PROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;B&quot;</span>, <span class="st">&quot;b&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000000</span>
+storm$PROPDMG &lt;-<span class="st"> </span>storm$PROPDMG *<span class="st"> </span>storm$PROPMULT
+storm$CROPMULT &lt;-<span class="st"> </span><span class="dv">1</span>
+storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;k&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000</span>
+storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;M&quot;</span>, <span class="st">&quot;m&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000</span>
+storm$CROPMULT[storm$CROPDMGEXP %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;B&quot;</span>, <span class="st">&quot;b&quot;</span>)] &lt;-<span class="st"> </span><span class="dv">1000000000</span>
+storm$CROPDMG &lt;-<span class="st"> </span>storm$CROPDMG *<span class="st"> </span>storm$CROPMULT
+storm$TOTALDMG &lt;-<span class="st"> </span>storm$PROPDMG +<span class="st"> </span>storm$CROPDMG
+<span class="co"># view the data after</span>
+<span class="kw">head</span>(storm[, <span class="kw">c</span>(<span class="dv">24</span>:<span class="dv">27</span>,<span class="dv">38</span>:<span class="dv">40</span>)])</code></pre>
+<pre><code>##   INJURIES PROPDMG PROPDMGEXP CROPDMG PROPMULT CROPMULT TOTALDMG
+## 1       15   25000          K       0     1000        1    25000
+## 2        0    2500          K       0     1000        1     2500
+## 3        2   25000          K       0     1000        1    25000
+## 4        2    2500          K       0     1000        1     2500
+## 5        2    2500          K       0     1000        1     2500
+## 6        6    2500          K       0     1000        1     2500</code></pre>
 </div>
 <div id="results" class="section level3">
 <h3>Results</h3>
